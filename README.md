@@ -9,6 +9,7 @@
 
 - ✨ 完整支持 Etcd v3 API
 - 🔄 服务注册与发现（含心跳）
+- 📡 服务调用（负载均衡）
 - 🔐 用户认证与权限管理
 - 📦 租约管理
 - 🎯 PHP 8.2+ 语法兼容
@@ -21,7 +22,7 @@
 | kriswallsmith/buzz | ^1.3 |
 | nyholm/psr7 | ^1.8 |
 | psr/http-client | ^1.0 |
-| psr/http-message | ^1.0 \|\| ^2.0 |
+| psr/http-message | ^1.0 || ^2.0 |
 
 ## 安装
 
@@ -42,28 +43,31 @@ $client = new Client('127.0.0.1:2379');
 
 // 2. 基础 KV 操作
 $client->put('name', 'chenbool');           // 写入
-$value = $client->get('name');               // 读取 → ['key' => 'name', 'value' => 'chenbool']
+$value = $client->get('name');               // 读取
 $client->del('name');                        // 删除
 
 // 3. 服务注册
 $client->registerService('user-svc', '192.168.1.10', 8080, 30, ['version' => '1.0']);
-// 参数: 服务名, 主机, 端口, TTL(秒), 元数据
+$client->registerService('user-svc', '192.168.1.11', 8080, 30);
 
-// 4. 服务发现
+// 4. 服务调用（自动负载均衡）
+$response = $client->call('user-svc', 'GET', '/api/user/1');
+// $response = $client->call('user-svc', 'POST', '/api/user', ['name' => 'test']);
+// $response = $client->call('user-svc', 'GET', '/api/users', [], 'round'); // 轮询
+
+// 5. 服务发现
 $services = $client->discoverService('user-svc');
-// 返回: [['key' => '...', 'value' => '{"host":"...","port":8080,...}'], ...]
 
-// 5. 健康检查
+// 6. 健康检查
 $health = $client->getServiceHealth('user-svc', '192.168.1.10', 8080);
-// 返回: ['healthy' => true, 'service' => [...]]
 
-// 6. 刷新租约（续期）
+// 7. 刷新租约
 $client->refreshServiceLease('user-svc', '192.168.1.10', 8080, 60);
 
-// 7. 注销服务
+// 8. 注销服务
 $client->deregisterService('user-svc', '192.168.1.10', 8080);
 
-// 8. 心跳（保持服务在线，阻塞运行）
+// 9. 心跳（保持服务在线，阻塞运行）
 // $client->heartbeat('user-svc', '192.168.1.10', 8080, 10);
 ```
 
@@ -113,6 +117,12 @@ $client->deregisterService('user-svc', '192.168.1.10', 8080);
 | `getServiceHealth($name, $host, $port)` | 健康检查 |
 | `refreshServiceLease($name, $host, $port, $ttl)` | 刷新租约 |
 | `heartbeat($name, $host, $port, $ttl)` | 心跳（自动续期） |
+
+### 服务调用
+
+| 方法 | 说明 |
+|------|------|
+| `call($service, $method, $path, $data, $strategy)` | 调用服务（负载均衡） |
 
 ## 许可证
 

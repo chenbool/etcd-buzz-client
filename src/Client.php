@@ -775,6 +775,93 @@ class Client
     }
 
     /**
+     * 调用服务
+     * 
+     * 从 Etcd 发现服务并发起 HTTP 调用，支持负载均衡
+     * 
+     * @param string $serviceName 服务名称
+     * @param string $method HTTP 方法 (GET/POST/PUT/DELETE/PATCH)
+     * @param string $path 请求路径
+     * @param array $data 请求数据
+     * @param string $strategy 负载均衡策略: random/round 默认 random
+     * @return array 响应结果
+     */
+    public function call(
+        string $serviceName,
+        string $method,
+        string $path,
+        array $data = [],
+        string $strategy = 'random'
+    ): array {
+        $services = $this->discoverService($serviceName);
+        
+        if (empty($services)) {
+            return ['error' => 'No available service instances'];
+        }
+
+        $service = $this->selectService($services, $strategy);
+        $url = sprintf('http://%s:%d%s', $service['host'], $service['port'], $path);
+
+        return $this->makeHttpRequest($method, $url, $data);
+    }
+
+    /**
+     * 选择服务实例
+     * 
+     * @param array $services 服务列表
+     * @param string $strategy 负载均衡策略
+     * @return array
+     */
+    private function selectService(array $services, string $strategy): array
+    {
+        if ($strategy === 'round') {
+            static $index = 0;
+            $service = $services[$index % count($services)];
+            $index++;
+            return $service;
+        }
+
+        return $services[array_rand($services)];
+    }
+
+    /**
+     * 发起 HTTP 请求
+     * 
+     * @param string $method HTTP 方法
+     * @param string $url 请求 URL
+     * @param array $data 请求数据
+     * @return array
+     */
+    private function makeHttpRequest(string $method, string $url, array $data = []): array
+    {
+        try {
+            $headers = ['Content-Type' => 'application/json'];
+            
+            $body = '';
+            if ($data !== []) {
+                $body = json_encode($data);
+            }
+
+            $response = match (strtoupper($method)) {
+                'GET' => $this->browser->get($url, $headers),
+                'POST' => $this->browser->post($url, $headers, $body),
+                'PUT' => $this->browser->put($url, $headers, $body),
+                'DELETE' => $this->browser->delete($url, $headers, $body),
+                'PATCH' => $this->browser->patch($url, $headers, $body),
+                default => throw new \Exception("Unsupported HTTP method: $method"),
+            };
+
+            return [
+                'status' => $response->getStatusCode(),
+                'body' => $response->getBody()->getContents(),
+                'headers' => $response->getHeaders(),
+            ];
+        } catch (\Exception $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * 获取服务键前缀
      * 
      * @param string $serviceName 服务名称
