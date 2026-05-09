@@ -1105,4 +1105,92 @@ class Client
 
         return $map;
     }
+
+    /**
+     * 发现所有服务
+     * 
+     * 获取所有已注册的服务，按服务名分组返回
+     * 
+     * @param string $prefix 服务前缀，默认 '/services/'
+     * @return array 按服务名分组的服务列表
+     */
+    public function discoverAll(string $prefix = '/services/'): array
+    {
+        $prefix = rtrim($prefix, '/') . '/';
+        $result = $this->getKeysWithPrefix($prefix);
+        
+        // Handle different response formats
+        $allKeys = [];
+        if (isset($result['kvs'])) {
+            $allKeys = $result['kvs'];
+        } elseif (is_array($result)) {
+            $allKeys = $result;
+        }
+        
+        if (empty($allKeys)) {
+            return [];
+        }
+        
+        $services = [];
+        
+        foreach ($allKeys as $key => $value) {
+            // Handle different formats: array with key/value or map with key=>value
+            if (is_array($value) && isset($value['key'])) {
+                $keyStr = $value['key'];
+                $valStr = $value['value'] ?? '';
+            } else {
+                $keyStr = $key;
+                $valStr = $value;
+            }
+            
+            // Decode if needed
+            if (is_string($keyStr)) {
+                $decodedKey = base64_decode($keyStr, true) ?: $keyStr;
+            } else {
+                $decodedKey = $keyStr;
+            }
+            
+            $decodedValue = is_string($valStr) ? json_decode($valStr, true) : $valStr;
+            if (!$decodedValue) $decodedValue = $valStr;
+            
+            $parts = explode('/', $decodedKey);
+            $serviceName = $parts[2] ?? 'unknown';
+            $services[$serviceName][] = $decodedValue;
+        }
+        
+        return $services;
+    }
+
+    /**
+     * 批量心跳 - 保持多个服务在线
+     * 
+     * @param array $services 服务数组 [['name' => 'svc', 'host' => '127.0.0.1', 'port' => 8080], ...]
+     * @param int $ttl 租约存活时间（秒）
+     * @param int $interval 心跳间隔（秒）
+     * @param callable|null $callback 心跳回调函数 function($name, $host, $port)
+     * @return void
+     */
+    public function heartbeatAll(
+        array $services,
+        int $ttl = 30,
+        int $interval = 25,
+        ?callable $callback = null
+    ): void {
+        while (true) {
+            foreach ($services as $service) {
+                $name = $service['name'] ?? '';
+                $host = $service['host'] ?? '';
+                $port = $service['port'] ?? 0;
+                
+                if ($name && $host && $port) {
+                    $this->refreshServiceLease($name, $host, $port, $ttl);
+                    
+                    if ($callback) {
+                        $callback($name, $host, $port);
+                    }
+                }
+            }
+            sleep($interval);
+        }
+    }
 }

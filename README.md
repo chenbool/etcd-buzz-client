@@ -92,6 +92,10 @@ $services = $client->discoverService('user-svc');
 // 获取所有服务
 $allServices = $client->getAllServices();
 
+// 发现所有服务（按服务名分组）
+$grouped = $client->discoverAll('/services/');
+// 返回: ['user-svc' => [...], 'order-svc' => [...]]
+
 // 健康检查
 $health = $client->getServiceHealth('user-svc', '192.168.1.10', 8080);
 ```
@@ -110,8 +114,17 @@ $client->refreshServiceLeases([
 // 刷新所有服务租约
 $client->refreshAllServicesLease(60);
 
-// 心跳（阻塞运行）
+// 心跳（单服务，阻塞运行）
 // $client->heartbeat('user-svc', '192.168.1.10', 8080, 10);
+
+// 批量心跳（多服务，阻塞运行）
+$services = [
+    ['name' => 'user-svc', 'host' => '192.168.1.10', 'port' => 8080],
+    ['name' => 'order-svc', 'host' => '192.168.1.20', 'port' => 8080],
+];
+$client->heartbeatAll($services, 30, 25, function($name, $host, $port) {
+    echo "[Heartbeat] {$name}\n";
+});
 ```
 
 ### 6. 注销服务
@@ -166,12 +179,14 @@ $client->deregisterService('user-svc', '192.168.1.10', 8080);
 | `registerServices($services)` | 批量注册 |
 | `deregisterService($name, $host, $port)` | 注销服务 |
 | `discoverService($name)` | 发现服务 |
+| `discoverAll($prefix)` | 发现所有服务（按服务名分组） |
 | `getAllServices()` | 获取所有服务 |
 | `getServiceHealth($name, $host, $port)` | 健康检查 |
 | `refreshServiceLease($name, $host, $port, $ttl)` | 刷新租约 |
 | `refreshServiceLeases($services)` | 批量刷新 |
 | `refreshAllServicesLease($ttl)` | 刷新所有 |
-| `heartbeat($name, $host, $port, $ttl)` | 心跳 |
+| `heartbeat($name, $host, $port, $ttl)` | 单服务心跳 |
+| `heartbeatAll($services, $ttl, $interval, $callback)` | 批量心跳 |
 
 ### 服务调用
 
