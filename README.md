@@ -22,13 +22,15 @@
 | kriswallsmith/buzz | ^1.3 |
 | nyholm/psr7 | ^1.8 |
 | psr/http-client | ^1.0 |
-| psr/http-message | ^1.0 || ^2.0 |
+| psr/http-message | ^1.0 \|\| ^2.0 |
 
 ## 安装
 
 ```bash
 composer require chenbool/etcd-buzz-client
 ```
+
+---
 
 ## 快速开始
 
@@ -38,38 +40,87 @@ require 'vendor/autoload.php';
 
 use chenbool\Etcd\Client;
 
-// 1. 创建客户端
+// 创建客户端
 $client = new Client('127.0.0.1:2379');
+```
 
-// 2. 基础 KV 操作
-$client->put('name', 'chenbool');           // 写入
-$value = $client->get('name');               // 读取
-$client->del('name');                        // 删除
+### 1. KV 操作
 
-// 3. 服务注册
+```php
+// 写入
+$client->put('key', 'value');
+
+// 读取
+$value = $client->get('key');
+
+// 删除
+$client->del('key');
+```
+
+### 2. 服务注册
+
+```php
+// 单个注册
 $client->registerService('user-svc', '192.168.1.10', 8080, 30, ['version' => '1.0']);
-$client->registerService('user-svc', '192.168.1.11', 8080, 30);
 
-// 4. 服务调用（自动负载均衡）
+// 批量注册
+$client->registerServices([
+    ['name' => 'order-svc', 'host' => '192.168.1.20', 'port' => 8080],
+    ['name' => 'order-svc', 'host' => '192.168.1.21', 'port' => 8080],
+]);
+```
+
+### 3. 服务调用
+
+```php
+// GET 请求
 $response = $client->call('user-svc', 'GET', '/api/user/1');
-// $response = $client->call('user-svc', 'POST', '/api/user', ['name' => 'test']);
-// $response = $client->call('user-svc', 'GET', '/api/users', [], 'round'); // 轮询
 
-// 5. 服务发现
+// POST 请求
+$response = $client->call('user-svc', 'POST', '/api/user', ['name' => 'tom']);
+
+// 轮询负载均衡
+$response = $client->call('user-svc', 'GET', '/api/users', [], 'round');
+```
+
+### 4. 服务发现
+
+```php
+// 发现指定服务
 $services = $client->discoverService('user-svc');
 
-// 6. 健康检查
-$health = $client->getServiceHealth('user-svc', '192.168.1.10', 8080);
+// 获取所有服务
+$allServices = $client->getAllServices();
 
-// 7. 刷新租约
+// 健康检查
+$health = $client->getServiceHealth('user-svc', '192.168.1.10', 8080);
+```
+
+### 5. 租约管理
+
+```php
+// 刷新单个租约
 $client->refreshServiceLease('user-svc', '192.168.1.10', 8080, 60);
 
-// 8. 注销服务
-$client->deregisterService('user-svc', '192.168.1.10', 8080);
+// 批量刷新
+$client->refreshServiceLeases([
+    ['name' => 'user-svc', 'host' => '192.168.1.10', 'port' => 8080],
+]);
 
-// 9. 心跳（保持服务在线，阻塞运行）
+// 刷新所有服务租约
+$client->refreshAllServicesLease(60);
+
+// 心跳（阻塞运行）
 // $client->heartbeat('user-svc', '192.168.1.10', 8080, 10);
 ```
+
+### 6. 注销服务
+
+```php
+$client->deregisterService('user-svc', '192.168.1.10', 8080);
+```
+
+---
 
 ## API 文档
 
@@ -112,17 +163,23 @@ $client->deregisterService('user-svc', '192.168.1.10', 8080);
 | 方法 | 说明 |
 |------|------|
 | `registerService($name, $host, $port, $ttl, $metadata)` | 注册服务 |
+| `registerServices($services)` | 批量注册 |
 | `deregisterService($name, $host, $port)` | 注销服务 |
 | `discoverService($name)` | 发现服务 |
+| `getAllServices()` | 获取所有服务 |
 | `getServiceHealth($name, $host, $port)` | 健康检查 |
 | `refreshServiceLease($name, $host, $port, $ttl)` | 刷新租约 |
-| `heartbeat($name, $host, $port, $ttl)` | 心跳（自动续期） |
+| `refreshServiceLeases($services)` | 批量刷新 |
+| `refreshAllServicesLease($ttl)` | 刷新所有 |
+| `heartbeat($name, $host, $port, $ttl)` | 心跳 |
 
 ### 服务调用
 
 | 方法 | 说明 |
 |------|------|
-| `call($service, $method, $path, $data, $strategy)` | 调用服务（负载均衡） |
+| `call($service, $method, $path, $data, $strategy)` | 调用服务 |
+
+---
 
 ## 许可证
 

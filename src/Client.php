@@ -775,6 +775,97 @@ class Client
     }
 
     /**
+     * 获取所有服务
+     * 
+     * 获取所有已注册的服务实例
+     * 
+     * @return array 所有服务列表
+     */
+    public function getAllServices(): array
+    {
+        return $this->getKeysWithPrefix('/services/');
+    }
+
+    /**
+     * 批量注册服务
+     * 
+     * 一次性注册多个服务实例
+     * 
+     * @param array $services 服务数组，每项包含 host, port, ttl, metadata
+     * @return array 注册结果
+     */
+    public function registerServices(array $services): array
+    {
+        $results = [];
+        foreach ($services as $service) {
+            $name = $service['name'] ?? '';
+            $host = $service['host'] ?? '';
+            $port = $service['port'] ?? 0;
+            $ttl = $service['ttl'] ?? 30;
+            $metadata = $service['metadata'] ?? [];
+
+            if ($name && $host && $port) {
+                $results[] = $this->registerService($name, $host, $port, $ttl, $metadata);
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * 批量刷新租约
+     * 
+     * 一次性刷新多个服务的租约
+     * 
+     * @param array $services 服务数组，每项包含 name, host, port, ttl
+     * @return array 刷新结果
+     */
+    public function refreshServiceLeases(array $services): array
+    {
+        $results = [];
+        foreach ($services as $service) {
+            $name = $service['name'] ?? '';
+            $host = $service['host'] ?? '';
+            $port = $service['port'] ?? 0;
+            $ttl = $service['ttl'] ?? 30;
+
+            if ($name && $host && $port) {
+                $results[] = $this->refreshServiceLease($name, $host, $port, $ttl);
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * 刷新所有服务租约
+     * 
+     * 自动发现所有服务并刷新其租约
+     * 
+     * @param int $ttl 租约存活时间，默认 30 秒
+     * @return array 刷新结果
+     */
+    public function refreshAllServicesLease(int $ttl = 30): array
+    {
+        $allServices = $this->getAllServices();
+        
+        if (empty($allServices)) {
+            return ['message' => 'No services found'];
+        }
+
+        $results = [];
+        foreach ($allServices as $service) {
+            $value = json_decode($service['value'] ?? '{}', true);
+            $name = $value['name'] ?? '';
+            $host = $value['host'] ?? '';
+            $port = $value['port'] ?? 0;
+
+            if ($name && $host && $port) {
+                $results[] = $this->refreshServiceLease($name, $host, $port, $ttl);
+            }
+        }
+        return $results;
+    }
+
+    /**
      * 调用服务
      * 
      * 从 Etcd 发现服务并发起 HTTP 调用，支持负载均衡

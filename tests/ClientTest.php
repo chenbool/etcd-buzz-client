@@ -197,4 +197,59 @@ class ClientTest extends TestCase
     {
         $this->assertTrue(method_exists($this->client, 'revokeUserRole'));
     }
+
+    public function testRegisterServiceMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'registerService'));
+    }
+
+    public function testRegisterServicesMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'registerServices'));
+    }
+
+    public function testDeregisterServiceMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'deregisterService'));
+    }
+
+    public function testDiscoverServiceMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'discoverService'));
+    }
+
+    public function testGetAllServicesMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'getAllServices'));
+    }
+
+    public function testGetServiceHealthMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'getServiceHealth'));
+    }
+
+    public function testRefreshServiceLeaseMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'refreshServiceLease'));
+    }
+
+    public function testRefreshServiceLeasesMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'refreshServiceLeases'));
+    }
+
+    public function testRefreshAllServicesLeaseMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'refreshAllServicesLease'));
+    }
+
+    public function testHeartbeatMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'heartbeat'));
+    }
+
+    public function testCallMethodExists(): void
+    {
+        $this->assertTrue(method_exists($this->client, 'call'));
+    }
 }
