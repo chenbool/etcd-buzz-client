@@ -884,13 +884,34 @@ class Client
         array $data = [],
         string $strategy = 'random'
     ): array {
-        $services = $this->discoverService($serviceName);
+        $result = $this->discoverService($serviceName);
+        
+        // 解析返回格式
+        $services = [];
+        if (isset($result['kvs'])) {
+            $services = $result['kvs'];
+        } elseif (is_array($result) && isset($result[0])) {
+            $services = $result;
+        }
         
         if (empty($services)) {
             return ['error' => 'No available service instances'];
         }
 
-        $service = $this->selectService($services, $strategy);
+        // 解析服务数据
+        $parsedServices = [];
+        foreach ($services as $svc) {
+            $value = json_decode($svc['value'] ?? '', true);
+            if ($value && isset($value['host'], $value['port'])) {
+                $parsedServices[] = $value;
+            }
+        }
+        
+        if (empty($parsedServices)) {
+            return ['error' => 'No valid service data'];
+        }
+
+        $service = $this->selectService($parsedServices, $strategy);
         $url = sprintf('http://%s:%d%s', $service['host'], $service['port'], $path);
 
         return $this->makeHttpRequest($method, $url, $data);
